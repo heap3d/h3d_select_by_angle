@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package version="801">
+	<kit name="h3d_select_by_angle" restart="YES">
+		<source target="h3d_select_by_angle/index.cfg">index.cfg</source>
+		<source target="h3d_select_by_angle/scripts/selectByAngle.py">scripts/selectByAngle.py</source>
+	</kit>
+	<message button="Help">h3d_select_by_angle Kit installation complete.</message>
+</package>
