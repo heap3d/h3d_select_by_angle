@@ -87,7 +87,8 @@ if len(lx.args()) > 0:
             lx.eval('user.value "%s" %s' % (userValAngleName, lx.args()[1]))
 
 thresholdRad = lx.eval('user.value "%s" ?value' % userValAngleName)
-thresholdAngle = thresholdRad * 180 / math.pi
+# thresholdAngle = thresholdRad * 180 / math.pi
+thresholdAngle = math.degrees(thresholdRad)
 print('once:', runningOnce, '\tangle:', thresholdAngle, '\tthresholdRad:', thresholdRad)
 
 selectedMesh = scene.selectedByType('mesh')
