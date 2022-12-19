@@ -1,74 +1,77 @@
 #!/usr/bin/python
 # ================================
-# (C)2019-2021 Dmytro Holub
+# (C)2019-2022 Dmytro Holub
 # heap3d@gmail.com
 # --------------------------------
 # modo python
 # selectByAngle.py
-# version 3.2
 # select polygons by normal angle threshold
 # ================================
 
-# command line arguments: selectByAngle %1 %2
+# command line arguments: selectByAngle %1
 # %1: set - set mode, open dialog to set threshold angle
-# %1: runningOnce - true if running one step
-# %2: thresholdAngle - threshold angle between normals to select
+# %1: once - expand selection by 1 step
 
-from enum import auto
 import modo
-import math
 import lx
+import modo.constants as c
 
-safeLimit = 500
-runningOnce = True
-userValAngleName = "h3d_sba_thresholdAngle"
-userValAngleUsername = "angle"
-userValRunningName = "h3d_sba_runningOnce"
-selectionPolyDict = {}
-preSelectionPolyDict = {}
-edgeOfSelectionPolyDict = ()
-
-
-class SelectionModes:
-    SELECT_EXPAND_STEP = auto
-    SELECT_EXPAND_FILL = auto
-    SELECT_SET_ANGLE = auto
+USERVAL_NAME_ANGLE = "h3d_sba_thresholdAngle"
+USERVAL_NAME_RUNNING = "h3d_sba_runningOnce"
 
 
 class PolygonSelector:
     def __init__(self, polygons=[], threshold=5):
         self.polygons = polygons
         self.threshold = threshold
-        # set selection_sict
-        self.selection_dict = dict()
+        # set selection dict
+        self.selection = dict()
         for poly in polygons:
             self.add_to_selection(poly)
         # set preselection_dict
-        self.preselection_dict = dict()
-        for poly in polygons:
-            self.add_to_pre_selection_dict(poly)
+        self.preselection = self.selection.copy()
+        # set edge_of_selection dict
+        self.edge_of_selection = dict()
+        # set failed pairs list
+        self.failed_pairs = []
+    
+    def add_to_failed(self, poly1, poly2):
+        """add polygons in ascneding order"""
+        if not all((poly1, poly2)):
+            return
+        if poly1.index < poly2.index:
+            self.failed_pairs.append((poly1, poly2))
+        else:
+            self.failed_pairs.append((poly2, poly1))
 
-    def add_to_selection_dict(self, in_polygon):
+    def in_failed_pairs(self, poly1, poly2):
+        """check in ascending order"""
+        if poly1.index < poly2.index:
+            return (poly1, poly2) in self.failed_pairs
+        else:
+            return (poly2, poly1) in self.failed_pairs
+
+    def add_to_selection(self, in_polygon):
         """add polygon to selection dict"""
-        selectionPolyDict[in_polygon.id] = in_polygon
+        self.selection[in_polygon.id] = in_polygon
 
-    def add_to_pre_selection_dict(self, in_polygon):
-        preSelectionPolyDict[in_polygon.id] = in_polygon
+    def add_to_preselection(self, in_polygon):
+        self.preselection[in_polygon.id] = in_polygon
 
     def is_selected(self, in_polygon):
         """check if polygon selected by mark"""
-        result = in_polygon.id in selectionPolyDict
+        result = in_polygon.id in self.selection
         return result
 
     def is_pre_selected(self, in_polygon):
-        result = in_polygon.id in preSelectionPolyDict
+        result = in_polygon.id in self.preselection
         return result
 
     def is_on_selection_edge(self, in_polygon):
-        result = in_polygon.id in edgeOfSelectionPolyDict
+        result = in_polygon.id in self.edge_of_selection
         return result
 
-    def can_select_by_angle(self, in_polygon, new_poly, thresholdRad):
+    def can_select_by_angle(self, in_polygon, new_poly):
         """compare two polygon normals"""
         in_vector = modo.Vector3(in_polygon.normal)
         compare_vector = modo.Vector3(new_poly.normal)
@@ -78,151 +81,112 @@ class PolygonSelector:
             compare_angle = compare_vector.angle(in_vector)
         except ValueError:
             return True
-        r_value = compare_angle <= thresholdRad
+
+        r_value = compare_angle <= self.threshold
         return r_value
 
     def selection_expand_fill(self):
-        pass
+        # expand selection by one step first
+        # self.selection_expand_once()
+
+        self.edge_of_selection = self.preselection.copy()
+        self.selection.update(self.edge_of_selection)
+        self.preselection.clear()
+
+        while self.edge_of_selection:
+            for polygon in self.edge_of_selection.values():
+                for pre_polygon in polygon.neighbours:
+                    # if not in pre-selection dict
+                    if self.is_pre_selected(pre_polygon):
+                        continue
+                    # if not in selection dict
+                    if self.is_on_selection_edge(pre_polygon):
+                        continue
+                    if self.is_selected(pre_polygon):
+                        continue
+                    # if in normal angle threshold
+                    if not self.can_select_by_angle(polygon, pre_polygon):
+                        continue
+                    # if in failed_pairs list
+                    if self.in_failed_pairs(polygon, pre_polygon):
+                        continue
+                    # add to pre-selection dict
+                    self.add_to_preselection(pre_polygon)
+
+            for polygon in self.preselection.values():
+                polygon.select()
+
+            self.edge_of_selection = self.preselection.copy()
+            self.selection.update(self.edge_of_selection)
+            self.preselection.clear()
 
     def selection_expand_once(self):
-        for i in selectionPolyDict:
-            polygon = selectionPolyDict[i]
-
-            for prePolygon in polygon.neighbours:
+        for polygon in self.selection.values():
+            for pre_polygon in polygon.neighbours:
                 # if not in pre-selection dict
-                if self.is_pre_selected(prePolygon):
+                if self.is_pre_selected(pre_polygon):
                     continue
                 # if not in selection dict
-                if self.is_selected(prePolygon):
+                if self.is_selected(pre_polygon):
                     continue
                 # if in normal angle threshold
-                if not self.can_select_by_angle(polygon, prePolygon):
+                if not self.can_select_by_angle(polygon, pre_polygon):
                     continue
                 # add to pre-selection dict
-                self.add_to_pre_selection(prePolygon)
+                self.add_to_preselection(pre_polygon)
+
+        for polygon in self.preselection.values():
+            polygon.select()
+
+
+def get_selected_polygons(meshes):
+    polygons = []
+    for mesh in meshes:
+        for poly in mesh.geometry.polygons.selected:
+            polygons.append(poly)
+
+    return polygons
 
 
 def main():
-    print()
-    print("Running...")
-    # scene = modo.scene.current()
-
     print("")
     print("start...")
 
-    if not lx.args:
+    if not lx.args():
+        # selection expand fill
+        print("expand fill")
+        threshold = lx.eval("user.value {} ?".format(USERVAL_NAME_ANGLE))
+        meshes = modo.Scene().selectedByType(itype=c.MESH_TYPE)
+        polygons = get_selected_polygons(meshes)
+        poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
+        poly_selector.selection_expand_fill()
+
+        print("Selection expand fill - done.")
+        return
+
+    if lx.args()[0] == "set":
+        # set selection threnshold angle
+        try:
+            lx.eval("user.value %s" % USERVAL_NAME_ANGLE)
+        except RuntimeError:
+            print("User abort.")
+
+        print("Selection treshold angle set - done.")
+        return
+
+    if lx.args()[0] == "once":
         # selection expand once
-        threshold = lx.eval('user.value {} ?'.format(userValAngleName))
-        meshes = modo.scene.current().selectedByType()
-        
-        polygons = []
-        for mesh in meshes:
-            for poly in mesh.geometry.polygons.selected:
-                polygons.append(poly)
-        
+        print("expand once")
+        threshold = lx.eval("user.value {} ?".format(USERVAL_NAME_ANGLE))
+        meshes = modo.Scene().selectedByType(itype=c.MESH_TYPE)
+        polygons = get_selected_polygons(meshes)
         poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
         poly_selector.selection_expand_once()
 
-    if len(lx.args()) > 0:
-        if lx.args()[0] == "set":
-            try:
-                lx.eval("user.value %s" % userValAngleName)
-            except RuntimeError:
-                modo.dialogs.alert(
-                    title="threshold angle",
-                    message="error setting user value",
-                    dtype="error",
-                )
-            print(
-                "selection angle rads threshold set to",
-                lx.eval('user.value "%s" ?value' % userValAngleName),
-            )
-            print("Done.")
-            exit()
+        print("Selection expand once - done.")
+        return
 
-        runningOnceString = lx.args()[0]
-        runningOnce = "true" in runningOnceString.lower()
-        if len(lx.args()) > 1:
-            lx.eval('user.value "%s" %s' % (userValAngleName, lx.args()[1]))
-
-    thresholdRad = lx.eval('user.value "%s" ?value' % userValAngleName)
-    # thresholdAngle = thresholdRad * 180 / math.pi
-    thresholdAngle = math.degrees(thresholdRad)
-    print(
-        "once:",
-        runningOnce,
-        "\tangle:",
-        thresholdAngle,
-        "\tthresholdRad:",
-        thresholdRad,
-    )
-
-    selectedMesh = scene.selectedByType("mesh")
-
-    for mesh in selectedMesh:
-        for polygon in mesh.geometry.polygons.selected:
-            # add selected poly to selection dict
-            add_poly_to_selection(polygon)
-
-    for i in selectionPolyDict:
-        polygon = selectionPolyDict[i]
-
-        for prePolygon in polygon.neighbours:
-            # if not in pre-selection dict
-            if is_poly_pre_selected(prePolygon):
-                continue
-            # if not in selection dict
-            if is_poly_selected(prePolygon):
-                continue
-            # if in normal angle threshold
-            if not can_select_by_angle(polygon, prePolygon, thresholdRad):
-                continue
-            # add to pre-selection dict
-            add_poly_to_pre_selection(prePolygon)
-
-    for i in preSelectionPolyDict:
-        polygon = preSelectionPolyDict[i]
-        polygon.select()
-
-    edgeOfSelectionPolyDict = preSelectionPolyDict.copy()
-    selectionPolyDict.update(edgeOfSelectionPolyDict)
-    preSelectionPolyDict.clear()
-    safeCounter = 0
-
-    if not runningOnce:
-        while len(edgeOfSelectionPolyDict) > 0:
-            safeCounter += 1
-            if safeCounter > safeLimit:
-                print("Safe limit reached.")
-                break
-
-            for i in edgeOfSelectionPolyDict:
-                polygon = edgeOfSelectionPolyDict[i]
-
-                for prePolygon in polygon.neighbours:
-                    # if not in pre-selection dict
-                    if is_poly_pre_selected(prePolygon):
-                        continue
-                    # if not in selection dict
-                    if is_poly_on_the_edge_of_selection(prePolygon):
-                        continue
-                    if is_poly_selected(prePolygon):
-                        continue
-                    # if in normal angle threshold
-                    if not can_select_by_angle(polygon, prePolygon, thresholdRad):
-                        continue
-                    # add to pre-selection dict
-                    add_poly_to_pre_selection(prePolygon)
-
-            for i in preSelectionPolyDict:
-                polygon = preSelectionPolyDict[i]
-                polygon.select()
-
-            edgeOfSelectionPolyDict = preSelectionPolyDict.copy()
-            selectionPolyDict.update(edgeOfSelectionPolyDict)
-            preSelectionPolyDict.clear()
-
-    print("Done.")
+    print("done.")
 
 
 if __name__ == "__main__":
