@@ -34,7 +34,7 @@ class PolygonSelector:
         self.edge_of_selection = dict()
         # set failed pairs list
         self.failed_pairs = []
-    
+
     def add_to_failed(self, poly1, poly2):
         """add polygons in ascneding order"""
         if not all((poly1, poly2)):
