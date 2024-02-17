@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # ================================
-# (C)2019-2022 Dmytro Holub
+# (C)2019-2024 Dmytro Holub
 # heap3d@gmail.com
 # --------------------------------
 # modo python
@@ -148,6 +148,16 @@ def get_selected_polygons(meshes):
     return polygons
 
 
+def get_selected_meshes() -> list[modo.Item]:
+    # select meshes for selected polygons, workaround for selected polygons with no selected mesh items
+    for mesh in modo.Scene().meshes:
+        if mesh.geometry.polygons.selected:
+            mesh.select()
+    meshes = modo.Scene().selectedByType(itype=c.MESH_TYPE)
+
+    return meshes
+
+
 def main():
     print("")
     print("start...")
@@ -156,7 +166,7 @@ def main():
         # selection expand fill
         print("expand fill")
         threshold = lx.eval("user.value {} ?".format(USERVAL_NAME_ANGLE))
-        meshes = modo.Scene().selectedByType(itype=c.MESH_TYPE)
+        meshes = get_selected_meshes()
         polygons = get_selected_polygons(meshes)
         poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
         poly_selector.selection_expand_fill()
@@ -178,7 +188,7 @@ def main():
         # selection expand once
         print("expand once")
         threshold = lx.eval("user.value {} ?".format(USERVAL_NAME_ANGLE))
-        meshes = modo.Scene().selectedByType(itype=c.MESH_TYPE)
+        meshes = get_selected_meshes()
         polygons = get_selected_polygons(meshes)
         poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
         poly_selector.selection_expand_once()
