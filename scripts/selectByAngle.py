@@ -151,7 +151,9 @@ def get_selected_polygons(meshes):
 def get_selected_meshes() -> list[modo.Item]:
     # select meshes for selected polygons, workaround for selected polygons with no selected mesh items
     for mesh in modo.Scene().meshes:
-        if mesh.geometry.polygons.selected:
+        if not (polygons := mesh.geometry.polygons):
+            continue
+        if polygons.selected:
             mesh.select()
     meshes = modo.Scene().selectedByType(itype=c.MESH_TYPE)
 
@@ -162,19 +164,24 @@ def main():
     print("")
     print("start...")
 
-    if not lx.args():
+    args = lx.args()
+
+    if not args:
         # selection expand fill
         print("expand fill")
         threshold = lx.eval("user.value {} ?".format(USERVAL_NAME_ANGLE))
         meshes = get_selected_meshes()
         polygons = get_selected_polygons(meshes)
-        poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
+        if not threshold:
+            poly_selector = PolygonSelector(polygons=polygons)
+        else:
+            poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
         poly_selector.selection_expand_fill()
 
         print("Selection expand fill - done.")
         return
 
-    if lx.args()[0] == "set":
+    if args[0] == "set":
         # set selection threnshold angle
         try:
             lx.eval("user.value %s" % USERVAL_NAME_ANGLE)
@@ -184,13 +191,16 @@ def main():
         print("Selection treshold angle set - done.")
         return
 
-    if lx.args()[0] == "once":
+    if args[0] == "once":
         # selection expand once
         print("expand once")
         threshold = lx.eval("user.value {} ?".format(USERVAL_NAME_ANGLE))
         meshes = get_selected_meshes()
         polygons = get_selected_polygons(meshes)
-        poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
+        if not threshold:
+            poly_selector = PolygonSelector(polygons=polygons)
+        else:
+            poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
         poly_selector.selection_expand_once()
 
         print("Selection expand once - done.")
