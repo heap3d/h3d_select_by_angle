@@ -16,14 +16,48 @@ import modo
 import lx
 import modo.constants as c
 
+from h3d_utilites.scripts.h3d_utils import get_user_value
+
+
 USERVAL_NAME_ANGLE = "h3d_sba_thresholdAngle"
 USERVAL_NAME_RUNNING = "h3d_sba_runningOnce"
 
+ARG_FILL = None
+ARG_ONCE = 'once'
+ARG_SET = 'set'
+
+
+def expand_fill():
+    angle = get_user_value(USERVAL_NAME_ANGLE)
+    meshes = get_selected_meshes()
+    polygons = get_selected_polygons(meshes)
+    if not angle:
+        raise ValueError('angle is None')
+    poly_selector = PolygonSelector(polygons=polygons, angle=angle)
+    poly_selector.selection_expand_fill()
+
+
+def set_angle_userval():
+    try:
+        lx.eval("user.value %s" % USERVAL_NAME_ANGLE)
+    except RuntimeError:
+        pass
+
+
+def expand_once():
+    angle = get_user_value(USERVAL_NAME_ANGLE)
+    meshes = get_selected_meshes()
+    polygons = get_selected_polygons(meshes)
+    if not angle:
+        raise ValueError('angle is None')
+    poly_selector = PolygonSelector(polygons=polygons, angle=angle)
+    poly_selector.selection_expand_once()
+
 
 class PolygonSelector:
-    def __init__(self, polygons=[], threshold=5):
+    def __init__(self, polygons: list[modo.MeshPolygon], angle: float):
         self.polygons = polygons
-        self.threshold = threshold
+        self.threshold = angle
         # set selection dict
         self.selection = dict()
         for poly in polygons:
@@ -140,7 +174,7 @@ class PolygonSelector:
 
 
 def get_selected_polygons(meshes):
-    polygons = []
+    polygons: list[modo.MeshPolygon] = []
     for mesh in meshes:
         for poly in mesh.geometry.polygons.selected:
             polygons.append(poly)
@@ -164,47 +198,13 @@ def main():
     print("")
     print("start...")
 
-    args = lx.args()
+    action = {
+        ARG_SET: set_angle_userval,
+        ARG_FILL: expand_fill,
+        ARG_ONCE: expand_once,
+    }
 
-    if not args:
-        # selection expand fill
-        print("expand fill")
-        threshold = lx.eval("user.value {} ?".format(USERVAL_NAME_ANGLE))
-        meshes = get_selected_meshes()
-        polygons = get_selected_polygons(meshes)
-        if not threshold:
-            poly_selector = PolygonSelector(polygons=polygons)
-        else:
-            poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
-        poly_selector.selection_expand_fill()
-
-        print("Selection expand fill - done.")
-        return
-
-    if args[0] == "set":
-        # set selection threnshold angle
-        try:
-            lx.eval("user.value %s" % USERVAL_NAME_ANGLE)
-        except RuntimeError:
-            print("User abort.")
-
-        print("Selection treshold angle set - done.")
-        return
-
-    if args[0] == "once":
-        # selection expand once
-        print("expand once")
-        threshold = lx.eval("user.value {} ?".format(USERVAL_NAME_ANGLE))
-        meshes = get_selected_meshes()
-        polygons = get_selected_polygons(meshes)
-        if not threshold:
-            poly_selector = PolygonSelector(polygons=polygons)
-        else:
-            poly_selector = PolygonSelector(polygons=polygons, threshold=threshold)
-        poly_selector.selection_expand_once()
-
-        print("Selection expand once - done.")
-        return
+    action.get(lx.args(), expand_fill)()
 
     print("done.")
 
