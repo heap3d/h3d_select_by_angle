@@ -54,6 +54,27 @@ def expand_once():
     poly_selector.selection_expand_once()
 
 
+def get_selected_meshes() -> list[modo.Mesh]:
+    # select meshes for selected polygons, workaround for selected polygons with no selected mesh items
+    for mesh in modo.Scene().meshes:
+        if not (polygons := mesh.geometry.polygons):
+            continue
+        if polygons.selected:
+            mesh.select()
+    meshes: list[modo.Mesh] = modo.Scene().selectedByType(itype=c.MESH_TYPE)
+
+    return meshes
+
+
+def get_selected_polygons(meshes: list[modo.Mesh]) -> list[modo.MeshPolygon]:
+    polygons: list[modo.MeshPolygon] = []
+    for mesh in meshes:
+        for poly in mesh.geometry.polygons.selected:   # type: ignore
+            polygons.append(poly)
+
+    return polygons
+
+
 class PolygonSelector:
     def __init__(self, polygons: list[modo.MeshPolygon], angle: float):
         self.polygons = polygons
@@ -171,27 +192,6 @@ class PolygonSelector:
 
         for polygon in self.preselection.values():
             polygon.select()
-
-
-def get_selected_polygons(meshes):
-    polygons: list[modo.MeshPolygon] = []
-    for mesh in meshes:
-        for poly in mesh.geometry.polygons.selected:
-            polygons.append(poly)
-
-    return polygons
-
-
-def get_selected_meshes() -> list[modo.Item]:
-    # select meshes for selected polygons, workaround for selected polygons with no selected mesh items
-    for mesh in modo.Scene().meshes:
-        if not (polygons := mesh.geometry.polygons):
-            continue
-        if polygons.selected:
-            mesh.select()
-    meshes = modo.Scene().selectedByType(itype=c.MESH_TYPE)
-
-    return meshes
 
 
 def main():
