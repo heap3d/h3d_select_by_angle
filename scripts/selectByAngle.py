@@ -179,7 +179,6 @@ class PolygonSelector:
                    if polygon_naightbour not in self.selection.values()):
                 self.deselection[polygon.id] = polygon
 
-        self.preselection = dict()
         printi(self.deselection.values(), 'self.deselection:')
         for polygon in self.deselection.values():
             polygon.deselect()
