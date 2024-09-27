@@ -78,6 +78,8 @@ class PolygonSelector:
     def preselection_expand_fill(self, validator: Callable):
         """
         expands polygon preselection
+        Args:
+            validator (Callable): function to validate preselection expansion
         """
         while self.recent_preselection:
             self.preselection_expand_once(validator)
@@ -85,6 +87,8 @@ class PolygonSelector:
     def preselection_expand_once(self, validator: Callable):
         """
         expand polygon preselection by one step
+        Args:
+            validator (Callable): function to validate preselection expansion
         """
         expanded_preselection: dict[int, modo.MeshPolygon] = dict()
         for polygon in self.recent_preselection.values():
@@ -160,6 +164,12 @@ class PolygonSelector:
         return self.can_select_by_angle(old_polygon, new_polygon)
 
     def selection_contract_once(self, validator: Callable):
+        """
+        Contracts polygon selection using current material limitation
+
+        Args:
+            validator (Callable): function to validate selection contraction
+        """
         polygons_selection_rim = self.get_selection_rim()
         printi(polygons_selection_rim.values(), 'polygons_selection_rim:')
         for polygon in polygons_selection_rim.values():
