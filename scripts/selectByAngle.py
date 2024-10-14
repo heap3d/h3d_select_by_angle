@@ -329,7 +329,7 @@ def cmd_contract_once():
 
 
 if __name__ == "__main__":
-    h3dd = H3dDebug(enable=False, file=modo.Scene().filename + '.log')
+    h3dd = H3dDebug(enable=False, file=modo.Scene().name + '.log')
     printd = h3dd.print_debug
     printi = h3dd.print_items
 
