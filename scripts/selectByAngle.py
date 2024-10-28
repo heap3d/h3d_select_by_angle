@@ -257,7 +257,7 @@ def get_polygon_selector() -> PolygonSelector:
     angle = get_user_value(USERVAL_NAME_ANGLE)
     meshes = get_selected_meshes()
     polygons = get_selected_polygons(meshes)
-    if not angle:
+    if angle is None:
         raise ValueError('angle is None')
     polygon_selector = PolygonSelector(polygons=polygons, angle=angle)
     return polygon_selector
